@@ -181,6 +181,15 @@ setup_database() {
     if [ "$USE_POSTGRES" = true ]; then
         print_info "Configuring PostgreSQL..."
 
+        # Configure pg_hba.conf for password authentication
+        PG_HBA="/etc/postgresql/16/main/pg_hba.conf"
+        if ! grep -q "local.*noter.*noter_user.*md5" "$PG_HBA"; then
+            echo "local   noter           noter_user                              md5" >> "$PG_HBA"
+            echo "host    noter           noter_user      127.0.0.1/32            md5" >> "$PG_HBA"
+            systemctl reload postgresql
+            print_success "PostgreSQL authentication configured"
+        fi
+
         # Create database and user
         sudo -u postgres psql <<EOF
 CREATE DATABASE noter;
