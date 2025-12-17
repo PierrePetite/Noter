@@ -1,16 +1,20 @@
 # Noter - Quick Install Guide
 
-## 🚀 One-Line Installation
+## 🚀 Quick Installation
 
 ### Prerequisites
 - Fresh Ubuntu 24.04 LXC Container
 - 2 CPU Cores, 4GB RAM, 20GB Storage
 - Root access
 
-### Installation Command
+### Installation Commands
 
 ```bash
-apt update && apt install -y curl && curl -fsSL https://raw.githubusercontent.com/PierrePetite/Noter/main/deploy-lxc.sh | bash
+# Download and run the installation script
+apt update && apt install -y curl
+curl -fsSL https://raw.githubusercontent.com/PierrePetite/Noter/main/deploy-lxc.sh -o deploy.sh
+chmod +x deploy.sh
+./deploy.sh
 ```
 
 That's it! The script will:
@@ -75,8 +79,19 @@ systemctl status postgresql
 
 **Need to start over?**
 ```bash
+# Clean up everything
+sudo -u postgres psql <<EOF
+DROP DATABASE IF EXISTS noter;
+DROP USER IF EXISTS noter_user;
+EOF
+
 rm -rf /opt/noter
-# Run the installation command again
+rm -f deploy.sh
+
+# Download and run again
+curl -fsSL https://raw.githubusercontent.com/PierrePetite/Noter/main/deploy-lxc.sh -o deploy.sh
+chmod +x deploy.sh
+./deploy.sh
 ```
 
 ---
