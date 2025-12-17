@@ -181,12 +181,16 @@ setup_database() {
     if [ "$USE_POSTGRES" = true ]; then
         print_info "Configuring PostgreSQL..."
 
-        # Configure pg_hba.conf for password authentication
+        # Configure pg_hba.conf for password authentication FIRST
         PG_HBA="/etc/postgresql/16/main/pg_hba.conf"
         if ! grep -q "local.*noter.*noter_user.*md5" "$PG_HBA"; then
+            echo "" >> "$PG_HBA"
+            echo "# Noter database" >> "$PG_HBA"
             echo "local   noter           noter_user                              md5" >> "$PG_HBA"
             echo "host    noter           noter_user      127.0.0.1/32            md5" >> "$PG_HBA"
+            echo "host    noter           noter_user      ::1/128                 md5" >> "$PG_HBA"
             systemctl reload postgresql
+            sleep 2  # Wait for PostgreSQL to reload
             print_success "PostgreSQL authentication configured"
         fi
 
@@ -199,6 +203,9 @@ GRANT ALL PRIVILEGES ON DATABASE noter TO noter_user;
 GRANT ALL ON SCHEMA public TO noter_user;
 \q
 EOF
+
+        # Ensure password is set correctly (workaround for authentication issues)
+        sudo -u postgres psql -c "ALTER USER noter_user WITH PASSWORD '$DB_PASSWORD';"
 
         print_success "PostgreSQL database 'noter' created"
         DATABASE_URL="postgresql://noter_user:$DB_PASSWORD@localhost:5432/noter"
