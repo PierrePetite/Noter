@@ -1,0 +1,27 @@
+{
+  "title": "Meine aktualisierte Notiz",
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 1 },
+        "content": [
+          {
+            "type": "text",
+            "text": "Überschrift"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Aktualisierter Inhalt mit mehr Text!"
+          }
+        ]
+      }
+    ]
+  }
+}

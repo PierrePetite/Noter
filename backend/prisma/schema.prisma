@@ -1,0 +1,164 @@
+// Prisma Schema für Noter
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Benutzer
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String?  @map("display_name")
+  isAdmin      Boolean  @default(false) @map("is_admin")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationen
+  ownedNotes    Note[]        @relation("NoteOwner")
+  ownedFolders  Folder[]      @relation("FolderOwner")
+  sharedNotes   NoteShare[]
+  sharedFolders FolderShare[]
+
+  @@map("users")
+}
+
+// Ordner
+model Folder {
+  id        String   @id @default(uuid())
+  name      String
+  parentId  String?  @map("parent_id")
+  ownerId   String   @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relationen
+  parent   Folder?       @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[]      @relation("FolderHierarchy")
+  owner    User          @relation("FolderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  notes    Note[]
+  shares   FolderShare[]
+
+  @@index([ownerId])
+  @@index([parentId])
+  @@map("folders")
+}
+
+// Notizen
+model Note {
+  id         String   @id @default(uuid())
+  title      String
+  content    Json     // TipTap JSON-Format
+  folderId   String?  @map("folder_id")
+  ownerId    String   @map("owner_id")
+  isFavorite Boolean  @default(false) @map("is_favorite")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relationen
+  folder      Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  owner       User         @relation("NoteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  shares      NoteShare[]
+  attachments Attachment[]
+  tags        Tag[]        @relation("NoteTags")
+
+  @@index([ownerId])
+  @@index([folderId])
+  @@index([createdAt])
+  @@map("notes")
+}
+
+// Notiz-Freigaben
+model NoteShare {
+  id         String     @id @default(uuid())
+  noteId     String     @map("note_id")
+  userId     String     @map("user_id")
+  permission Permission @default(READ)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  // Relationen
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+  @@index([userId])
+  @@map("note_shares")
+}
+
+// Ordner-Freigaben
+model FolderShare {
+  id         String     @id @default(uuid())
+  folderId   String     @map("folder_id")
+  userId     String     @map("user_id")
+  permission Permission @default(READ)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  // Relationen
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, userId])
+  @@index([userId])
+  @@map("folder_shares")
+}
+
+// Dateianhänge
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  mimeType  String   @map("mime_type")
+  size      Int
+  path      String   // Pfad im Storage Provider
+  noteId    String   @map("note_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relationen
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@map("attachments")
+}
+
+// Tags
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  color     String?  // Hex-Farbe für UI
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relationen
+  notes Note[] @relation("NoteTags")
+
+  @@map("tags")
+}
+
+// Backup-Metadaten (für Tracking von Backups)
+model Backup {
+  id        String   @id @default(uuid())
+  provider  String   // Name des Backup-Providers
+  size      Int      // Größe in Bytes
+  path      String?  // Pfad/ID im Provider-System
+  metadata  Json?    // Zusätzliche Metadaten (noteCount, userCount, etc.)
+  status    BackupStatus @default(COMPLETED)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("backups")
+}
+
+// Enums
+enum Permission {
+  READ
+  WRITE
+}
+
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}

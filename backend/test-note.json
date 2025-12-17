@@ -1,0 +1,17 @@
+{
+  "title": "Meine erste Notiz",
+  "content": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Das ist der Inhalt meiner ersten Notiz!"
+          }
+        ]
+      }
+    ]
+  }
+}
