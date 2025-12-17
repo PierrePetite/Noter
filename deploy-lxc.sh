@@ -236,8 +236,11 @@ install_application() {
     print_info "Setting up backend..."
     cd $APP_DIR/backend
 
-    # Install dependencies
-    npm install --production
+    # Install dependencies (including devDependencies for build)
+    npm install
+
+    # Install required @types packages for TypeScript build
+    npm install --save-dev @types/bcrypt @types/node-cron @types/archiver @types/adm-zip @types/jsdom @types/jsonwebtoken
 
     # Create .env file
     cat > .env <<EOF
