@@ -17,7 +17,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.addHook('preHandler', adminMiddleware);
 
   // GET /api/admin/stats - System-Statistiken abrufen
-  app.get('/stats', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/stats', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const stats = await adminService.getSystemStats();
 
@@ -37,7 +37,7 @@ export async function adminRoutes(app: FastifyInstance) {
   // === USER MANAGEMENT ===
 
   // GET /api/admin/users - Alle Benutzer abrufen
-  app.get('/users', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/users', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const users = await userManagementService.getAllUsers();
 

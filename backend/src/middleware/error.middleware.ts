@@ -18,7 +18,7 @@ export function errorHandler(
 
   // Zod Validation Errors
   if (error.validation) {
-    return reply.status(400).send({
+    reply.status(400).send({
       success: false,
       error: 'Validation failed',
       details: error.validation,

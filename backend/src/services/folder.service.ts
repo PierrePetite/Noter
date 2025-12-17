@@ -323,7 +323,7 @@ export class FolderService {
         return true;
       }
 
-      const parent = await this.prisma.folder.findUnique({
+      const parent: { parentId: string | null } | null = await this.prisma.folder.findUnique({
         where: { id: currentId },
         select: { parentId: true },
       });

@@ -8,7 +8,7 @@ export async function setupRoutes(app: FastifyInstance) {
   const setupService = new SetupService(app.prisma);
 
   // GET /api/setup/status - Prüft ob Setup erforderlich ist
-  app.get('/status', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/status', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const setupRequired = await setupService.isSetupRequired();
       const stats = await setupService.getSystemStats();

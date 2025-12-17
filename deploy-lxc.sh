@@ -272,10 +272,11 @@ EOF
         print_info "Configuring Prisma for PostgreSQL..."
         sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
 
-        # Remove SQLite migrations and recreate for PostgreSQL
-        print_info "Creating PostgreSQL-compatible migrations..."
-        rm -rf prisma/migrations
-        npx prisma migrate dev --name init --skip-seed
+        # Push schema directly to PostgreSQL (no migration files needed)
+        print_info "Pushing schema to PostgreSQL database..."
+        npx prisma db push --accept-data-loss --skip-generate
+        npx prisma generate
+        print_success "Database schema applied"
     else
         # Run Prisma migrations for SQLite
         print_info "Running database migrations..."

@@ -13,7 +13,7 @@ export async function tagRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authMiddleware);
 
   // GET /api/tags - Alle Tags abrufen
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const tags = await tagService.getAllTags();
 

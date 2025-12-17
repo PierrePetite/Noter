@@ -1,7 +1,6 @@
 import { IImportProvider, IExportProvider, ImportOptions, ImportResult, ValidationResult, ExportOptions } from './ImportExportProvider.interface';
 import { PrismaClient } from '@prisma/client';
 import archiver from 'archiver';
-import { Readable } from 'stream';
 
 /**
  * Markdown Import/Export Provider
@@ -20,7 +19,7 @@ export class MarkdownProvider implements IImportProvider, IExportProvider {
 
   async import(
     data: Buffer,
-    format: string,
+    _format: string,
     userId: string,
     options?: ImportOptions
   ): Promise<ImportResult> {
@@ -60,7 +59,7 @@ export class MarkdownProvider implements IImportProvider, IExportProvider {
     }
   }
 
-  async validate(data: Buffer, format: string): Promise<ValidationResult> {
+  async validate(data: Buffer, _format: string): Promise<ValidationResult> {
     try {
       const markdown = data.toString('utf-8');
 
@@ -84,7 +83,7 @@ export class MarkdownProvider implements IImportProvider, IExportProvider {
 
   // Export-Funktionen
 
-  async export(noteIds: string[], format: string, options?: ExportOptions): Promise<Buffer> {
+  async export(noteIds: string[], _format: string, options?: ExportOptions): Promise<Buffer> {
     const notes = await this.prisma.note.findMany({
       where: { id: { in: noteIds } },
       include: {
@@ -107,7 +106,7 @@ export class MarkdownProvider implements IImportProvider, IExportProvider {
     return this.createMarkdownZip(notes, options);
   }
 
-  async exportAll(userId: string, format: string, options?: ExportOptions): Promise<Buffer> {
+  async exportAll(userId: string, _format: string, options?: ExportOptions): Promise<Buffer> {
     const notes = await this.prisma.note.findMany({
       where: { ownerId: userId },
       include: {

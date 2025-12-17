@@ -18,9 +18,9 @@ const importRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/import/synology
    * Importiert eine Synology NoteStation Backup-Datei (.nsx)
    */
-  fastify.post('/synology', async (request: AuthenticatedRequest, reply) => {
+  fastify.post('/synology', async (request, reply) => {
     try {
-      const userId = request.user.id;
+      const userId = (request as AuthenticatedRequest).user.id;
 
       // Multipart-Upload verarbeiten
       const data = await request.file();
@@ -77,7 +77,7 @@ const importRoutes: FastifyPluginAsync = async (fastify) => {
    * GET /api/import/formats
    * Gibt alle unterstützten Import-Formate zurück
    */
-  fastify.get('/formats', async (request, reply) => {
+  fastify.get('/formats', async (_request, reply) => {
     return reply.send({
       success: true,
       data: {

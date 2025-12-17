@@ -17,7 +17,7 @@ export async function backupRoutes(app: FastifyInstance) {
   app.addHook('preHandler', adminMiddleware);
 
   // GET /api/backups - Liste alle Backups
-  app.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const backups = await backupService.listBackups();
 
@@ -34,7 +34,7 @@ export async function backupRoutes(app: FastifyInstance) {
   });
 
   // POST /api/backups - Erstelle neues Backup
-  app.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const backup = await backupService.createBackup('MANUAL');
 
@@ -124,7 +124,7 @@ export async function backupRoutes(app: FastifyInstance) {
   );
 
   // GET /api/backups/schedule - Hole aktuelle Scheduler-Konfiguration
-  app.get('/schedule', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/schedule', async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
       const schedule = await schedulerService.getSchedule();
 

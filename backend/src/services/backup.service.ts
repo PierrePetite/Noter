@@ -1,4 +1,4 @@
-import { PrismaClient, BackupType, BackupStatus } from '@prisma/client';
+import { PrismaClient, BackupType } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
