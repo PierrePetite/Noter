@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { CreateNoteInput, UpdateNoteInput } from '../utils/validation';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export class NoteService {
   constructor(private prisma: PrismaClient) {}
@@ -233,6 +235,9 @@ export class NoteService {
   async deleteNote(noteId: string, userId: string) {
     const note = await this.prisma.note.findUnique({
       where: { id: noteId },
+      include: {
+        attachments: true,
+      },
     });
 
     if (!note) {
@@ -244,6 +249,12 @@ export class NoteService {
       throw new Error('Only the owner can delete this note');
     }
 
+    // Physische Dateien löschen
+    if (note.attachments && note.attachments.length > 0) {
+      await this.deleteAttachmentFiles(note.attachments);
+    }
+
+    // Note aus DB löschen (Cascade löscht automatisch die Attachment-Einträge)
     await this.prisma.note.delete({
       where: { id: noteId },
     });
@@ -252,10 +263,29 @@ export class NoteService {
   }
 
   /**
-   * Notizen durchsuchen
+   * Physische Attachment-Dateien löschen
+   */
+  private async deleteAttachmentFiles(attachments: Array<{ path: string }>) {
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
+
+    for (const attachment of attachments) {
+      try {
+        const filePath = path.resolve(uploadDir, attachment.path);
+        await fs.unlink(filePath);
+        console.log(`Deleted file: ${filePath}`);
+      } catch (error) {
+        console.error(`Failed to delete file ${attachment.path}:`, error);
+        // Fehler nicht weitergeben, damit Löschung trotzdem durchgeht
+      }
+    }
+  }
+
+  /**
+   * Notizen durchsuchen (Titel + Content)
    */
   async searchNotes(userId: string, query: string) {
-    const notes = await this.prisma.note.findMany({
+    // Hole alle Notizen des Users (eigene + geteilte)
+    const allNotes = await this.prisma.note.findMany({
       where: {
         OR: [
           { ownerId: userId },
@@ -267,12 +297,6 @@ export class NoteService {
             },
           },
         ],
-        AND: {
-          title: {
-            contains: query,
-            // mode: 'insensitive' wird nur von PostgreSQL unterstützt
-          },
-        },
       },
       include: {
         owner: {
@@ -295,7 +319,62 @@ export class NoteService {
       },
     });
 
-    return notes;
+    // Filtere clientseitig nach Titel ODER Content
+    const searchLower = query.toLowerCase();
+    const filteredNotes = allNotes.filter((note) => {
+      // Suche im Titel
+      if (note.title.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+
+      // Suche im Content (TipTap JSON)
+      try {
+        const contentText = this.extractTextFromTiptap(note.content);
+        return contentText.toLowerCase().includes(searchLower);
+      } catch (error) {
+        // Falls Content nicht parsbar ist, ignoriere diesen Teil
+        return false;
+      }
+    });
+
+    return filteredNotes;
+  }
+
+  /**
+   * Extrahiert Text aus TipTap JSON Format
+   */
+  private extractTextFromTiptap(content: any): string {
+    if (!content) return '';
+
+    // Wenn es bereits ein String ist
+    if (typeof content === 'string') {
+      return content;
+    }
+
+    let text = '';
+
+    const extractFromNode = (node: any): void => {
+      // Text-Node
+      if (node.type === 'text' && node.text) {
+        text += node.text + ' ';
+      }
+
+      // Node mit Content (z.B. paragraph, heading, etc.)
+      if (node.content && Array.isArray(node.content)) {
+        node.content.forEach(extractFromNode);
+      }
+    };
+
+    // Starte mit dem Root-Node
+    if (content.type === 'doc' && content.content) {
+      content.content.forEach(extractFromNode);
+    } else if (Array.isArray(content)) {
+      content.forEach(extractFromNode);
+    } else {
+      extractFromNode(content);
+    }
+
+    return text.trim();
   }
 
   /**

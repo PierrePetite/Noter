@@ -340,4 +340,78 @@ export class ShareService {
 
     return users;
   }
+
+  /**
+   * Shares einer Notiz abrufen
+   */
+  async getNoteShares(noteId: string, requesterId: string) {
+    // Prüfe ob Notiz existiert und User Zugriff hat
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!note) {
+      throw new Error('Note not found');
+    }
+
+    if (note.ownerId !== requesterId) {
+      throw new Error('Only the owner can view shares');
+    }
+
+    const shares = await this.prisma.noteShare.findMany({
+      where: { noteId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return shares;
+  }
+
+  /**
+   * Shares eines Ordners abrufen
+   */
+  async getFolderShares(folderId: string, requesterId: string) {
+    // Prüfe ob Ordner existiert und User Zugriff hat
+    const folder = await this.prisma.folder.findUnique({
+      where: { id: folderId },
+    });
+
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    if (folder.ownerId !== requesterId) {
+      throw new Error('Only the owner can view shares');
+    }
+
+    const shares = await this.prisma.folderShare.findMany({
+      where: { folderId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return shares;
+  }
 }

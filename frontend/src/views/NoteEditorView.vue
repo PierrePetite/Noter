@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 flex flex-col">
     <!-- Header -->
-    <header class="bg-white shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+    <header class="bg-white shadow-sm flex-shrink-0">
+      <div class="px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <button
             @click="goBack"
@@ -31,63 +31,76 @@
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <div v-if="loading" class="text-center py-12">
-        <div class="text-gray-600">Lade Notiz...</div>
-      </div>
+    <!-- Main Content with Sidebar -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Editor Area -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+          <div v-if="loading" class="text-center py-12">
+            <div class="text-gray-600">Lade Notiz...</div>
+          </div>
 
-      <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-        {{ error }}
-      </div>
+          <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            {{ error }}
+          </div>
 
-      <div v-else class="space-y-4">
-        <!-- Title Input -->
-        <div>
-          <input
-            v-model="form.title"
-            @input="markAsChanged"
-            type="text"
-            placeholder="Titel der Notiz..."
-            class="w-full px-4 py-3 text-2xl font-semibold border-0 border-b-2 border-gray-200 focus:border-blue-500 focus:outline-none bg-white"
-          />
+          <div v-else class="space-y-4">
+            <!-- Title Input -->
+            <div>
+              <input
+                v-model="form.title"
+                @input="markAsChanged"
+                type="text"
+                placeholder="Titel der Notiz..."
+                class="w-full px-4 py-3 text-2xl font-semibold border-0 border-b-2 border-gray-200 focus:border-blue-500 focus:outline-none bg-white"
+              />
+            </div>
+
+            <!-- Folder Selection -->
+            <div class="bg-white p-4 rounded-lg border">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Ordner
+              </label>
+              <select
+                v-model="form.folderId"
+                @change="markAsChanged"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option :value="null">Ohne Ordner</option>
+                <option
+                  v-for="folder in flatFolders"
+                  :key="folder.id"
+                  :value="folder.id"
+                >
+                  {{ folder.indent }}{{ folder.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- TipTap Editor -->
+            <TipTapEditor
+              v-model="form.content"
+              @update:modelValue="markAsChanged"
+              placeholder="Schreibe deine Notiz..."
+            />
+
+            <!-- Auto-save info -->
+            <div class="text-sm text-gray-500 text-center">
+              Änderungen werden automatisch alle 30 Sekunden gespeichert.
+              Drücke Cmd/Strg + S für manuelles Speichern.
+            </div>
+          </div>
         </div>
+      </main>
 
-        <!-- Folder Selection -->
-        <div class="bg-white p-4 rounded-lg border">
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            Ordner
-          </label>
-          <select
-            v-model="form.folderId"
-            @change="markAsChanged"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option :value="null">Ohne Ordner</option>
-            <option
-              v-for="folder in flatFolders"
-              :key="folder.id"
-              :value="folder.id"
-            >
-              {{ folder.indent }}{{ folder.name }}
-            </option>
-          </select>
-        </div>
-
-        <!-- TipTap Editor -->
-        <TipTapEditor
-          v-model="form.content"
-          @update:modelValue="markAsChanged"
-          placeholder="Schreibe deine Notiz..."
-        />
-
-        <!-- Auto-save info -->
-        <div class="text-sm text-gray-500 text-center">
-          Änderungen werden automatisch alle 30 Sekunden gespeichert.
-          Drücke Cmd/Strg + S für manuelles Speichern.
-        </div>
-      </div>
-    </main>
+      <!-- Sidebar -->
+      <NoteSidebar
+        v-if="!isNewNote && !loading && currentNote"
+        :note="currentNote"
+        @attachmentAdded="handleAttachmentChange"
+        @attachmentDeleted="handleAttachmentChange"
+      />
+    </div>
   </div>
 </template>
 
@@ -97,6 +110,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { notesApi, type Note } from '../api/notes';
 import { foldersApi, type Folder } from '../api/folders';
 import TipTapEditor from '../components/TipTapEditor.vue';
+import NoteSidebar from '../components/NoteSidebar.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -107,6 +121,7 @@ const error = ref('');
 const hasChanges = ref(false);
 const lastSaved = ref('');
 const folders = ref<Folder[]>([]);
+const currentNote = ref<Note | null>(null);
 
 const form = ref({
   title: '',
@@ -178,6 +193,7 @@ async function loadNote() {
   error.value = '';
   try {
     const note = await notesApi.getById(noteId.value);
+    currentNote.value = note;
     form.value.title = note.title;
     form.value.content = note.content;
     form.value.folderId = note.folderId || null;
@@ -209,6 +225,14 @@ async function saveNote(isAutoSave = false) {
         content: form.value.content,
         folderId: form.value.folderId || undefined,
       });
+
+      // Update currentNote after save
+      if (currentNote.value) {
+        currentNote.value.title = form.value.title;
+        currentNote.value.content = form.value.content;
+        currentNote.value.folderId = form.value.folderId;
+        currentNote.value.updatedAt = new Date().toISOString();
+      }
     }
 
     hasChanges.value = false;
@@ -253,5 +277,11 @@ function goBack() {
   } else {
     router.push('/notes');
   }
+}
+
+function handleAttachmentChange() {
+  // Optional: Reload note to get updated attachment count
+  // For now, just log it
+  console.log('Attachment changed');
 }
 </script>

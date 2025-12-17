@@ -84,6 +84,7 @@ export async function createApp(): Promise<FastifyInstance> {
   const { tagRoutes } = await import('./routes/tags');
   const { attachmentRoutes } = await import('./routes/attachments');
   const importRoutes = await import('./routes/import');
+  const adminRoutes = await import('./routes/admin');
 
   await app.register(setupRoutes, { prefix: '/api/setup' });
   await app.register(authRoutes, { prefix: '/api/auth' });
@@ -93,6 +94,7 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(tagRoutes, { prefix: '/api/tags' });
   await app.register(attachmentRoutes, { prefix: '/api' });
   await app.register(importRoutes.default, { prefix: '/api/import' });
+  await app.register(adminRoutes.default, { prefix: '/api/admin' });
 
   // TODO: Weitere Routes registrieren
   // await app.register(backupRoutes, { prefix: '/api/backups' });

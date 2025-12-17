@@ -223,7 +223,7 @@ export class SynologyImportProvider {
         const note: SynologyNote = JSON.parse(noteContent);
 
         // 1. Anhänge hochladen und URL-Mapping erstellen
-        const imageRefMap = await this.uploadAttachments(
+        const { imageRefMap, uploadedAttachments } = await this.uploadAttachments(
           extractDir,
           note.attachment || {},
           options
@@ -249,6 +249,22 @@ export class SynologyImportProvider {
             updatedAt: options.preserveTimestamps ? new Date(note.mtime * 1000) : undefined,
           },
         });
+
+        // 4b. Attachment-Einträge in DB erstellen (für nicht-Bild Dateien)
+        for (const attachment of uploadedAttachments) {
+          // Nur nicht-Bilder als Attachments speichern (Bilder sind inline)
+          if (!attachment.mimeType.startsWith('image/')) {
+            await this.prisma.attachment.create({
+              data: {
+                filename: attachment.filename,
+                mimeType: attachment.mimeType,
+                size: attachment.size,
+                path: attachment.path,
+                noteId: createdNote.id,
+              },
+            });
+          }
+        }
 
         // 5. Tags verarbeiten
         if (note.tag && note.tag.length > 0) {
@@ -278,10 +294,24 @@ export class SynologyImportProvider {
     extractDir: string,
     attachments: SynologyNote['attachment'],
     options: SynologyImportOptions
-  ): Promise<Map<string, string>> {
+  ): Promise<{
+    imageRefMap: Map<string, string>;
+    uploadedAttachments: Array<{
+      filename: string;
+      mimeType: string;
+      size: number;
+      path: string;
+    }>;
+  }> {
     const imageRefMap = new Map<string, string>();
+    const uploadedAttachments: Array<{
+      filename: string;
+      mimeType: string;
+      size: number;
+      path: string;
+    }> = [];
 
-    if (!attachments) return imageRefMap;
+    if (!attachments) return { imageRefMap, uploadedAttachments };
 
     const registry = PluginRegistry.getInstance();
     const storageProvider = registry.getStorageProvider();
@@ -310,13 +340,21 @@ export class SynologyImportProvider {
 
         // Mapping: ref -> URL
         imageRefMap.set(attachment.ref, uploadedFile.url);
+
+        // Info für DB-Einträge sammeln
+        uploadedAttachments.push({
+          filename: attachment.name,
+          mimeType: attachment.type,
+          size: attachment.size,
+          path: uploadPath,
+        });
       } catch (error: any) {
         // Fehler beim Upload ignorieren (Bild wird nicht angezeigt)
         console.error(`Failed to upload attachment ${attachment.name}:`, error.message);
       }
     }
 
-    return imageRefMap;
+    return { imageRefMap, uploadedAttachments };
   }
 
   /**

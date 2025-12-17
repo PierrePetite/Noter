@@ -36,6 +36,12 @@ const router = createRouter({
       component: () => import('../views/ImportView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: () => import('../views/AdminView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
   ],
 });
 
@@ -60,6 +66,25 @@ router.beforeEach(async (to, from, next) => {
   // Auth-Check
   if (to.meta.requiresAuth && !localStorage.getItem('token')) {
     return next('/login');
+  }
+
+  // Admin-Check
+  if (to.meta.requiresAdmin) {
+    const userJson = localStorage.getItem('user');
+    if (!userJson) {
+      return next('/login');
+    }
+
+    try {
+      const user = JSON.parse(userJson);
+      if (!user.isAdmin) {
+        console.warn('Access denied: Admin rights required');
+        return next('/notes'); // Redirect to notes if not admin
+      }
+    } catch (error) {
+      console.error('Failed to parse user data:', error);
+      return next('/login');
+    }
   }
 
   // Wenn eingeloggt und auf Login/Setup -> redirect zu Home

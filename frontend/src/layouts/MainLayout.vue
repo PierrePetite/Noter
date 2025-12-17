@@ -26,6 +26,17 @@
 
       <!-- Footer -->
       <div class="p-4 border-t border-gray-200 space-y-2">
+        <!-- Admin Panel (nur für Admins) -->
+        <button
+          v-if="currentUser?.isAdmin"
+          @click="router.push('/admin')"
+          class="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Admin
+        </button>
         <button
           @click="router.push('/import')"
           class="w-full flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
@@ -48,12 +59,22 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-hidden">
-      <slot
-        :selected-view="selectedView"
-        :selected-folder-id="selectedFolderId"
-        :refresh-folders="refreshFolders"
-      />
+    <main class="flex-1 overflow-hidden flex flex-col">
+      <!-- Search Header -->
+      <div class="bg-white border-b border-gray-200 p-4">
+        <div class="max-w-2xl">
+          <SearchBar />
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <div class="flex-1 overflow-hidden">
+        <slot
+          :selected-view="selectedView"
+          :selected-folder-id="selectedFolderId"
+          :refresh-folders="refreshFolders"
+        />
+      </div>
     </main>
 
     <!-- Folder Dialog (Create/Rename) -->
@@ -87,6 +108,7 @@ import { useRouter } from 'vue-router';
 import FolderTree from '../components/FolderTree.vue';
 import FolderDialog from '../components/FolderDialog.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
+import SearchBar from '../components/SearchBar.vue';
 import { foldersApi, type Folder } from '../api/folders';
 
 const router = useRouter();

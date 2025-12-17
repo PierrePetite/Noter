@@ -12,6 +12,14 @@ Noter ist eine moderne Webanwendung für das Erstellen und Verwalten von Rich-Te
 - **Provider-System**: Storage, Backup und Import/Export verwenden Adapter-Pattern
 - **Dependency Injection**: Services werden injiziert, nicht hart verdrahtet
 
+## Entwicklungs-Richtlinien für Claude Code
+
+**Git & Version Control:**
+- **NUR zu Git pushen, wenn explizit vom Benutzer angefordert**
+- Commits können automatisch erstellt werden, wenn sinnvoll
+- Vor jedem Push: Prüfung auf sensible Daten (.env, Secrets, Passwörter)
+- Nach jedem Push: Commit-Hash oder URL mitteilen
+
 ## Technologie-Stack
 
 ### Frontend
@@ -26,6 +34,8 @@ Noter ist eine moderne Webanwendung für das Erstellen und Verwalten von Rich-Te
     - Blockzitate
     - Links
     - Horizontale Linien
+    - Tabellen (resizable, mit Header-Zeilen) ✅
+    - Inline-Bilder (Drag & Drop, Paste, Upload) ✅
     - Undo/Redo
 - **UI-Framework**: Tailwind CSS ✅
 - **State Management**: Pinia (geplant)
@@ -128,22 +138,45 @@ Beim ersten Aufruf werden Sie zum Setup weitergeleitet, wo Sie einen Admin-Accou
   - Paste aus Zwischenablage
   - Toolbar-Button für Upload
   - Automatische Integration in TipTap
+- [x] **Tabellen-Unterstützung** ✅
+  - TipTap Table Extensions (@tiptap/extension-table)
+  - Toolbar mit 8 Buttons (Insert, Add/Delete Rows/Columns)
+  - Resizable Columns
+  - Header-Zeilen Support
+  - Professionelles Styling (Borders, Padding, Selected Cell)
 - [x] **Synology NoteStation Import** ✅
   - NSX-Datei Upload
-  - HTML zu TipTap Konvertierung
+  - HTML zu TipTap Konvertierung (inkl. Tabellen)
   - Ordner & Bilder Import
   - Import-Fortschritt & Statistiken
-- [ ] Admin-Panel (User-Verwaltung)
-- [ ] Anhänge-UI (Datei-Upload & Anzeige)
-- [ ] Freigabe-UI
-- [ ] Tags-UI
+- [x] **Admin-Panel** ✅
+  - User-Verwaltung (CRUD)
+  - System-Statistiken Dashboard
+  - Größte Dateien Übersicht
+  - Admin-only Zugriff
+- [x] **Anhänge-UI** ✅
+  - NoteSidebar mit Metadata
+  - Datei-Upload (Drag & Drop)
+  - Attachments Liste
+  - Download/Delete Funktionen
+- [x] **Freigabe-UI (Komplett)** ✅
+  - ShareDialog Komponente mit Benutzer-Suche
+  - Permission-Auswahl und Live-Änderung (READ/WRITE)
+  - Share-Status in NoteSidebar mit Benutzernamen
+  - "Mit mir geteilt" Ansicht funktional
+  - Share-Icon bei geteilten Notizen in Liste
+  - Shares verwalten (hinzufügen/entfernen/ändern)
+  - Klickbare Share-Badges öffnen Dialog
+- [ ] Tags-UI implementieren
 
 **Erweiterte Features:**
 - [x] Dateianhänge/Attachments (Backend)
 - [x] Bilder hochladen (Backend API)
 - [x] Image Upload UI + TipTap Integration ✅
 - [x] Import API-Endpoints (Synology) ✅
-- [ ] Attachments UI (Frontend - Datei-Upload außerhalb Editor)
+- [x] Attachments UI (Frontend - Datei-Upload außerhalb Editor) ✅
+- [x] File Cleanup bei Notiz/User-Löschung ✅
+- [x] Orphaned Files Cleanup Script ✅
 - [ ] Versionshistorie
 - [ ] PDF Export
 - [ ] Öffentliche Freigabe-Links
@@ -412,7 +445,11 @@ SynologyImportProvider
 │   ├── Text-Formatierung (bold, italic, strike, code, highlight)
 │   ├── Links & Bilder
 │   ├── Code-Blöcke mit Syntax-Highlighting
-│   └── Blockquotes & horizontale Linien
+│   ├── Blockquotes & horizontale Linien
+│   └── Tabellen (table, thead, tbody, tr, td, th) ✅
+│       ├── Header-Erkennung (thead/th)
+│       ├── Verschachtelte Strukturen
+│       └── Text in Zellen → Paragraph-Wrapping
 ├── Ordner-Import
 │   ├── Synology ID → Noter UUID Mapping
 │   └── Hierarchie-Unterstützung (flach im aktuellen Backup)
@@ -442,7 +479,7 @@ SynologyImportProvider
 **Bekannte Einschränkungen:**
 - Stack (verschachtelte Notizbücher) werden aktuell nicht unterstützt (alle auf Root-Level)
 - Inline-Styles werden entfernt (nicht kompatibel mit TipTap)
-- Tabellen werden teilweise unterstützt (einfache Strukturen)
+- Komplexe Tabellen-Merging (rowspan/colspan) werden nicht unterstützt
 
 **Performance:**
 - ~65 Notizen in ~10-15 Sekunden
@@ -569,8 +606,10 @@ DELETE /api/folders/:id        - Ordner löschen
 ```
 POST   /api/shares/notes/:id/share           - Notiz freigeben
 DELETE /api/shares/notes/:id/share/:userId   - Notiz-Freigabe entfernen
+GET    /api/notes/:id/shares                 - Shares einer Notiz abrufen ✅
 POST   /api/shares/folders/:id/share         - Ordner freigeben
 DELETE /api/shares/folders/:id/share/:userId - Ordner-Freigabe entfernen
+GET    /api/folders/:id/shares               - Shares eines Ordners abrufen ✅
 GET    /api/shares/with-me                   - Mit mir geteilte Inhalte
 GET    /api/shares/users/search?q=           - Benutzer für Freigabe suchen
 ```
@@ -614,8 +653,15 @@ PUT    /api/backups/schedule   - Backup-Zeitplan konfigurieren
 GET    /api/backups/schedule   - Aktuellen Zeitplan abrufen
 ```
 
-### Admin/Settings (nur für Admins)
+### Admin/Settings (nur für Admins) ✅
 ```
+GET    /api/admin/stats        - System-Statistiken ✅
+GET    /api/admin/users        - Alle Benutzer ✅
+GET    /api/admin/users/:id    - Einzelner Benutzer ✅
+POST   /api/admin/users        - Benutzer erstellen ✅
+PUT    /api/admin/users/:id    - Benutzer aktualisieren ✅
+DELETE /api/admin/users/:id    - Benutzer löschen ✅
+GET    /api/admin/users/:id/stats - Benutzer-Statistiken ✅
 GET    /api/admin/providers    - Alle konfigurierten Provider
 PUT    /api/admin/providers/:type/:name/config - Provider konfigurieren
 POST   /api/admin/providers/:type/:name/test   - Provider-Verbindung testen
@@ -676,13 +722,19 @@ noter/
 │   │   │   ├── client.ts           # Axios-Client mit Auth-Interceptor
 │   │   │   ├── notes.ts            # Notizen-API-Service
 │   │   │   ├── folders.ts          # Ordner-API-Service ✅
-│   │   │   └── images.ts           # Bild-Upload-API-Service ✅
+│   │   │   ├── images.ts           # Bild-Upload-API-Service ✅
+│   │   │   └── shares.ts           # Sharing-API-Service ✅
 │   │   ├── components/              ✅ Implementiert
 │   │   │   ├── TipTapEditor.vue    # Rich-Text-Editor mit Toolbar ✅
 │   │   │   ├── FolderTree.vue      # Ordner-Baum Sidebar ✅
 │   │   │   ├── FolderTreeItem.vue  # Rekursives Ordner-Item ✅
 │   │   │   ├── FolderDialog.vue    # Ordner erstellen/umbenennen ✅
-│   │   │   └── ConfirmDialog.vue   # Bestätigungs-Dialog ✅
+│   │   │   ├── ConfirmDialog.vue   # Bestätigungs-Dialog ✅
+│   │   │   ├── NoteSidebar.vue     # Notiz-Metadaten & Anhänge ✅
+│   │   │   ├── ShareDialog.vue     # Freigabe-Dialog ✅
+│   │   │   └── admin/              # Admin-Komponenten ✅
+│   │   │       ├── DashboardView.vue
+│   │   │       └── UserManagementView.vue
 │   │   ├── layouts/
 │   │   │   └── MainLayout.vue      # Haupt-Layout mit Sidebar ✅
 │   │   ├── views/                   ✅ Implementiert
@@ -871,10 +923,10 @@ crontab -e
 - Ordner-Verwaltung
 
 ### Sprint 3 (Woche 5-6): Erweiterte Formatierung
-- Tabellen
-- Bilder hochladen und einbetten
-- Code-Blöcke mit Syntax-Highlighting
-- Dateianhänge
+- [x] Tabellen ✅
+- [x] Bilder hochladen und einbetten ✅
+- [x] Code-Blöcke mit Syntax-Highlighting ✅
+- [ ] Dateianhänge (Backend fertig, UI pending)
 
 ### Sprint 4 (Woche 7-8): Freigabe-Funktionen
 - Notizen teilen
@@ -929,39 +981,45 @@ VITE_API_URL=http://noter.local/api
 ## Nächste Schritte
 
 **Priorität 1 - Kern-Features vervollständigen:**
-1. **Tags-UI implementieren**
+1. **Freigabe-UI vervollständigen**
+   - [x] ShareDialog Komponente ✅
+   - [x] Share-Button in NoteSidebar ✅
+   - [ ] Share-Button in Note Toolbar
+   - [ ] Share-Option im FolderTree Kontextmenü
+   - [ ] "Mit mir geteilt" View aktualisieren
+   - [ ] Visuelle Badges für geteilte Items
+
+2. **Tags-UI implementieren**
    - Tag-Auswahl beim Bearbeiten
    - Filterung nach Tags in der Sidebar
    - Tag-Verwaltung (erstellen/löschen)
 
-2. **Freigabe-UI implementieren**
-   - Notizen/Ordner teilen Dialog
-   - "Mit mir geteilt" Ansicht
-   - Berechtigungen verwalten (READ/WRITE)
-
-3. **Anhänge-UI implementieren**
-   - Datei-Upload (außerhalb Editor)
-   - Anhänge-Liste anzeigen
-   - Download-Funktionen
-   - Anhang zu Notiz zuordnen
-
 **Priorität 2 - Admin & Management:**
-4. **Admin-Panel**
-   - User-Verwaltung (erstellen/löschen)
-   - Rollen-Zuweisung
-   - System-Statistiken
+3. **Admin-Panel** ✅
+   - [x] User-Verwaltung (CRUD) ✅
+   - [x] System-Statistiken ✅
+   - [x] Admin-only Zugriff ✅
 
-5. **Export-Funktionen**
+4. **Export-Funktionen**
    - Markdown Export
    - HTML Export
    - PDF Export (mit puppeteer)
    - ZIP-Download mit Attachments
 
-**Priorität 3 - Erweiterte Features:**
+**Priorität 3 - Deployment & Production:**
+5. **Automatisiertes LXC Deployment**
+   - One-Click Install Script
+   - Automatische Konfiguration (DB, ENV, Nginx)
+   - Let's Encrypt SSL Integration
+   - PM2 Setup & Monitoring
+   - Backup-Automatisierung
+
+**Priorität 4 - Erweiterte Features:**
 6. **Erweiterte Editor-Features**
-   - Tabellen-Unterstützung
-   - Embed-Funktionen (YouTube, etc.)
+   - Embed-Funktionen (YouTube, iFrames, etc.)
    - Latex/Math-Support
+   - Mermaid Diagramme
+   - Kollaboratives Editing (CRDT/Y.js)
 
 7. **Suchfunktion verbessern**
    - Volltextsuche über Content

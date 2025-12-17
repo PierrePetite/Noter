@@ -195,6 +195,48 @@ export async function shareRoutes(app: FastifyInstance) {
     }
   );
 
+  // GET /api/notes/:id/shares - Shares einer Notiz abrufen
+  app.get('/notes/:id/shares', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { id: userId } = (request as AuthenticatedRequest).user;
+      const { id: noteId } = request.params as { id: string };
+
+      const shares = await shareService.getNoteShares(noteId, userId);
+
+      return reply.send({
+        success: true,
+        data: shares,
+      });
+    } catch (error: any) {
+      const statusCode = error.message === 'Note not found' ? 404 : 403;
+      return reply.status(statusCode).send({
+        success: false,
+        error: error.message || 'Failed to fetch note shares',
+      });
+    }
+  });
+
+  // GET /api/folders/:id/shares - Shares eines Ordners abrufen
+  app.get('/folders/:id/shares', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { id: userId } = (request as AuthenticatedRequest).user;
+      const { id: folderId } = request.params as { id: string };
+
+      const shares = await shareService.getFolderShares(folderId, userId);
+
+      return reply.send({
+        success: true,
+        data: shares,
+      });
+    } catch (error: any) {
+      const statusCode = error.message === 'Folder not found' ? 404 : 403;
+      return reply.status(statusCode).send({
+        success: false,
+        error: error.message || 'Failed to fetch folder shares',
+      });
+    }
+  });
+
   // GET /api/shares/with-me - Mit mir geteilte Inhalte
   app.get('/with-me', async (request: FastifyRequest, reply: FastifyReply) => {
     try {

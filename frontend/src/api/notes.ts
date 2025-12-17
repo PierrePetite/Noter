@@ -5,7 +5,12 @@ export interface Note {
   title: string;
   content: any; // TipTap JSON or string
   folderId?: string | null;
+  folder?: {
+    id: string;
+    name: string;
+  };
   isFavorite?: boolean;
+  isShared?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,5 +55,11 @@ export const notesApi = {
   // Notiz löschen
   async delete(id: string) {
     await apiClient.delete(`/notes/${id}`);
+  },
+
+  // Notizen durchsuchen
+  async search(query: string) {
+    const response = await apiClient.get<{ success: boolean; data: Note[] }>(`/notes/search?q=${encodeURIComponent(query)}`);
+    return response.data.data;
   },
 };

@@ -62,20 +62,33 @@
               @click="openNote(note.id)"
               class="bg-white rounded-lg shadow hover:shadow-md transition-all cursor-pointer p-5 border border-gray-200 hover:border-blue-300"
             >
-              <!-- Title with Favorite Star -->
+              <!-- Title with Favorite Star and Share Icon -->
               <div class="flex items-start justify-between mb-2">
                 <h3 class="text-lg font-semibold text-gray-900 truncate flex-1">
                   {{ note.title || 'Ohne Titel' }}
                 </h3>
-                <button
-                  v-if="note.isFavorite"
-                  @click.stop
-                  class="flex-shrink-0 text-yellow-500"
-                >
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                </button>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    v-if="note.isShared"
+                    @click.stop
+                    class="text-blue-500"
+                    title="Geteilt"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                  </button>
+                  <button
+                    v-if="note.isFavorite"
+                    @click.stop
+                    class="text-yellow-500"
+                    title="Favorit"
+                  >
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <!-- Content Preview -->
@@ -106,22 +119,31 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import MainLayout from '../layouts/MainLayout.vue';
 import { notesApi, type Note } from '../api/notes';
+import { sharesApi } from '../api/shares';
 
 const router = useRouter();
 
 const notes = ref<Note[]>([]);
+const sharedNotes = ref<any[]>([]);
 const loading = ref(false);
 const error = ref('');
 
 onMounted(async () => {
   await loadNotes();
+  await loadSharedNotes();
 });
 
 async function loadNotes() {
   loading.value = true;
   error.value = '';
   try {
-    notes.value = await notesApi.getAll();
+    const loadedNotes = await notesApi.getAll();
+
+    // Prüfe für jede Notiz, ob sie geteilt ist (basierend auf shares Array vom Backend)
+    notes.value = loadedNotes.map((note: any) => ({
+      ...note,
+      isShared: note.shares && note.shares.length > 0,
+    }));
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Fehler beim Laden der Notizen';
   } finally {
@@ -129,15 +151,35 @@ async function loadNotes() {
   }
 }
 
+async function loadSharedNotes() {
+  try {
+    const shared = await sharesApi.getSharedWithMe();
+    sharedNotes.value = shared.notes;
+  } catch (err: any) {
+    console.error('Failed to load shared notes:', err);
+  }
+}
+
 function getFilteredNotes(view: string, folderId: string | null) {
+  // Für "Mit mir geteilt" zeige die geteilten Notizen
+  if (view === 'shared') {
+    return sharedNotes.value.map(shared => ({
+      id: shared.id,
+      title: shared.title,
+      content: {},
+      folderId: null,
+      ownerId: shared.owner.id,
+      isFavorite: false,
+      createdAt: shared.sharedAt,
+      updatedAt: shared.sharedAt,
+    }));
+  }
+
   let filtered = [...notes.value];
 
   // Filter by view
   if (view === 'favorites') {
     filtered = filtered.filter(note => note.isFavorite);
-  } else if (view === 'shared') {
-    // TODO: Filter shared notes when API is ready
-    filtered = [];
   }
 
   // Filter by folder
@@ -182,24 +224,72 @@ async function deleteNote(id: string) {
 }
 
 function getContentPreview(content: any): string {
+  if (!content) {
+    return 'Keine Vorschau verfügbar';
+  }
+
+  // Wenn es ein String ist (möglicherweise HTML)
   if (typeof content === 'string') {
-    return content;
+    // Entferne HTML-Tags
+    const textOnly = content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    if (!textOnly) {
+      return 'Keine Vorschau verfügbar';
+    }
+    return textOnly.length > 150 ? textOnly.substring(0, 150) + '...' : textOnly;
   }
 
-  // TipTap JSON format - extract text
-  if (content && content.content && Array.isArray(content.content)) {
-    const text = content.content
-      .map((node: any) => {
-        if (node.content && Array.isArray(node.content)) {
-          return node.content.map((n: any) => n.text || '').join('');
-        }
-        return '';
-      })
-      .join(' ');
-    return text.substring(0, 150);
+  // TipTap JSON format - extrahiere Text rekursiv
+  const extractedText = extractTextFromTiptap(content);
+
+  if (!extractedText || extractedText.trim().length === 0) {
+    return 'Keine Vorschau verfügbar';
   }
 
-  return 'Keine Vorschau verfügbar';
+  // Begrenze auf 150 Zeichen und füge ... hinzu wenn gekürzt
+  if (extractedText.length > 150) {
+    return extractedText.substring(0, 150) + '...';
+  }
+
+  return extractedText;
+}
+
+/**
+ * Extrahiert rekursiv allen Text aus TipTap JSON
+ */
+function extractTextFromTiptap(content: any): string {
+  if (!content) return '';
+
+  let text = '';
+
+  const extractFromNode = (node: any): void => {
+    // Text-Node
+    if (node.type === 'text' && node.text) {
+      text += node.text + ' ';
+      return;
+    }
+
+    // Node mit Content (paragraph, heading, listItem, etc.)
+    if (node.content && Array.isArray(node.content)) {
+      node.content.forEach(extractFromNode);
+
+      // Füge Leerzeichen nach Block-Elementen hinzu
+      if (['paragraph', 'heading', 'listItem'].includes(node.type)) {
+        text += ' ';
+      }
+    }
+  };
+
+  // Starte mit dem Root-Node
+  if (content.type === 'doc' && content.content) {
+    content.content.forEach(extractFromNode);
+  } else if (Array.isArray(content)) {
+    content.forEach(extractFromNode);
+  } else {
+    extractFromNode(content);
+  }
+
+  // Entferne mehrfache Leerzeichen und trimme
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 function formatDate(date: string): string {
