@@ -186,6 +186,8 @@ setup_database() {
 CREATE DATABASE noter;
 CREATE USER noter_user WITH PASSWORD '$DB_PASSWORD';
 GRANT ALL PRIVILEGES ON DATABASE noter TO noter_user;
+\c noter
+GRANT ALL ON SCHEMA public TO noter_user;
 \q
 EOF
 
