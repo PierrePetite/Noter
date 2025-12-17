@@ -12,6 +12,42 @@ Noter ist eine moderne Webanwendung für das Erstellen und Verwalten von Rich-Te
 - **Provider-System**: Storage, Backup und Import/Export verwenden Adapter-Pattern
 - **Dependency Injection**: Services werden injiziert, nicht hart verdrahtet
 
+**⚠️ KRITISCH: Backwards Compatibility für Daten-Exports & Backups**
+
+Ab sofort müssen **ALLE Releases** vollständig rückwärtskompatibel mit Export- und Backup-Formaten sein:
+
+1. **Backup-Format Versionierung**: Jedes Backup enthält ein `version`-Feld in der `metadata.json` (aktuell: `1.0.0`)
+2. **Restore-Garantie**: Neuere Versionen MÜSSEN ältere Backups wiederherstellen können
+3. **Breaking Changes verboten**: Änderungen am Backup-Format erfordern Migrations-Code
+4. **Metadata-Erweiterungen**: Neue Felder nur additiv, nie bestehende entfernen
+5. **Datenbank-Schema**: Prisma-Migrationen müssen alte Backup-Restores unterstützen
+
+**Bei Änderungen am Backup-Format:**
+- Version-Nummer erhöhen (Semantic Versioning: Major.Minor.Patch)
+- Migration-Code für ältere Versionen implementieren
+- Tests für Restore von allen unterstützten Versionen
+- Dokumentation aktualisieren
+
+**Beispiel für kompatible Änderungen:**
+```typescript
+// ✅ ERLAUBT: Neue Felder hinzufügen (mit Defaults)
+metadata: {
+  version: '1.1.0',
+  newField?: string; // Optional mit Fallback
+}
+
+// ❌ VERBOTEN: Bestehende Felder entfernen oder umbenennen
+metadata: {
+  // users: number; // ❌ NICHT LÖSCHEN!
+  statistics: { users: number }; // ✅ Stattdessen: Daten verschieben + Migration
+}
+```
+
+Diese Regel gilt für:
+- Backup-Formate (tar.gz mit metadata.json)
+- Export-Formate (Markdown, HTML, PDF, JSON)
+- Import-Formate (beim Erkennen von Versions-Informationen)
+
 ## Entwicklungs-Richtlinien für Claude Code
 
 **Git & Version Control:**
@@ -115,7 +151,11 @@ Beim ersten Aufruf werden Sie zum Setup weitergeleitet, wo Sie einen Admin-Accou
 
 **Provider-System:**
 - [x] Storage Provider (Local)
-- [x] Backup Provider (Local)
+- [x] Backup Provider (Local) ✅
+  - Backup-Erstellung (Datenbank + Uploads)
+  - Backup-Verwaltung (Liste, Download, Löschen)
+  - Admin-Panel UI
+  - Metadata mit Versionierung für Backwards Compatibility
 - [x] Import/Export Provider (Markdown)
 - [x] Import Provider (Synology NoteStation) ✅
 - [x] Plugin-Registry
@@ -177,10 +217,17 @@ Beim ersten Aufruf werden Sie zum Setup weitergeleitet, wo Sie einen Admin-Accou
 - [x] Attachments UI (Frontend - Datei-Upload außerhalb Editor) ✅
 - [x] File Cleanup bei Notiz/User-Löschung ✅
 - [x] Orphaned Files Cleanup Script ✅
+- [x] **Backup System (MVP)** ✅
+  - Backup Service (Datenbank + Uploads → tar.gz)
+  - Backup API (Erstellen, Listen, Löschen, Download)
+  - Admin Panel UI (BackupsView Component)
+  - Metadata mit Versionierung (1.0.0)
+  - SQLite & PostgreSQL Support
+- [ ] Backup Scheduler (Cron-Integration)
+- [ ] Backup Restore Funktionalität
 - [ ] Versionshistorie
 - [ ] PDF Export
 - [ ] Öffentliche Freigabe-Links
-- [ ] Backup API-Endpoints
 - [ ] Export API-Endpoints (Markdown, PDF, HTML)
 
 **Provider-Erweiterungen:**
@@ -430,6 +477,97 @@ export interface ExportOptions {
 - `JSONImportExportProvider`: Vollständiger Daten-Export im JSON-Format (geplant)
 - Zukünftig: Evernote, Notion, OneNote, etc.
 
+### Backup System - Technische Details
+
+Das Backup-System erstellt vollständige Datensicherungen der Noter-Anwendung im tar.gz-Format:
+
+**Architektur:**
+```
+BackupService
+├── Backup-Erstellung
+│   ├── 1. Temp-Verzeichnis erstellen
+│   ├── 2. Datenbank-Backup
+│   │   ├── SQLite: Datei kopieren
+│   │   └── PostgreSQL: pg_dump (Custom Format -Fc)
+│   ├── 3. Uploads-Verzeichnis kopieren
+│   │   └── Filter: .tmp und Hidden Files ausschließen
+│   ├── 4. Metadata erstellen (metadata.json)
+│   │   ├── version: "1.0.0" (Backup-Format Version)
+│   │   ├── appVersion: Noter Version
+│   │   ├── database: { name, size }
+│   │   ├── uploads: { fileCount, totalSize }
+│   │   └── statistics: { users, notes, folders, shares, attachments, tags }
+│   ├── 5. Komprimierung (tar -czf)
+│   └── 6. Cleanup + DB-Update
+├── Backup-Verwaltung
+│   ├── Liste (sortiert nach Datum)
+│   ├── Download (File Streaming)
+│   └── Löschen (File + DB-Record)
+└── Admin-UI (BackupsView Component)
+    ├── Status-Anzeige (IN_PROGRESS, COMPLETED, FAILED)
+    ├── Metadata-Anzeige (Größe, Statistiken)
+    └── Aktionen (Erstellen, Download, Löschen)
+```
+
+**Backup-Inhalt:**
+```
+backup_timestamp.tar.gz
+├── database.sql          # SQLite-Datei oder pg_dump Output
+├── uploads/              # Alle hochgeladenen Dateien
+│   ├── images/
+│   └── attachments/
+└── metadata.json         # Backup-Metadaten mit Version
+```
+
+**Metadata-Format (v1.0.0):**
+```json
+{
+  "version": "1.0.0",
+  "appVersion": "1.0.0",
+  "createdAt": "2025-12-17T...",
+  "type": "data",
+  "database": {
+    "name": "sqlite" | "postgres",
+    "size": 1234567
+  },
+  "uploads": {
+    "fileCount": 42,
+    "totalSize": 9876543
+  },
+  "statistics": {
+    "users": 5,
+    "notes": 123,
+    "folders": 12,
+    "shares": 8,
+    "attachments": 15,
+    "tags": 20
+  }
+}
+```
+
+**Versionierung & Backwards Compatibility:**
+- **Aktuell**: Version 1.0.0
+- **Format**: Semantic Versioning (Major.Minor.Patch)
+- **Garantie**: Neuere Versionen müssen ältere Backups wiederherstellen können
+- **Breaking Changes**: Nur mit Major-Version-Erhöhung + Migration-Code
+
+**API-Endpoints:**
+- `GET /api/backups` - Liste aller Backups
+- `POST /api/backups` - Neues Backup erstellen
+- `GET /api/backups/:id/download` - Backup herunterladen
+- `DELETE /api/backups/:id` - Backup löschen
+
+**Umgebungsvariablen:**
+- `BACKUP_DIR` - Verzeichnis für Backups (default: `./backups`)
+- `DATABASE_URL` - Für DB-Type-Erkennung (SQLite/PostgreSQL)
+
+**Geplante Features:**
+- Automatisches Scheduling (node-cron)
+- Restore-Funktionalität
+- Google Drive Backup Provider
+- S3 Backup Provider
+- Retention Policy (Auto-Delete alter Backups)
+
 #### Synology Import - Technische Details
 
 Der Synology NoteStation Importer ist ein vollständiger Import-Provider für .nsx Backup-Dateien:
@@ -641,16 +779,17 @@ POST   /api/export/all         - Alle Notizen exportieren
 GET    /api/export/formats     - Verfügbare Export-Formate
 ```
 
-### Backup
+### Backup ✅
 ```
-GET    /api/backups            - Alle Backups auflisten
-POST   /api/backups            - Manuelles Backup erstellen
-GET    /api/backups/:id        - Backup-Details abrufen
-POST   /api/backups/:id/restore - Backup wiederherstellen
-DELETE /api/backups/:id        - Backup löschen
-GET    /api/backups/providers  - Verfügbare Backup-Provider
-PUT    /api/backups/schedule   - Backup-Zeitplan konfigurieren
-GET    /api/backups/schedule   - Aktuellen Zeitplan abrufen
+GET    /api/backups                - Alle Backups auflisten ✅
+POST   /api/backups                - Manuelles Backup erstellen ✅
+GET    /api/backups/:id/download   - Backup herunterladen ✅
+DELETE /api/backups/:id            - Backup löschen ✅
+GET    /api/backups/:id            - Backup-Details abrufen (geplant)
+POST   /api/backups/:id/restore    - Backup wiederherstellen (geplant)
+GET    /api/backups/providers      - Verfügbare Backup-Provider (geplant)
+PUT    /api/backups/schedule       - Backup-Zeitplan konfigurieren (geplant)
+GET    /api/backups/schedule       - Aktuellen Zeitplan abrufen (geplant)
 ```
 
 ### Admin/Settings (nur für Admins) ✅

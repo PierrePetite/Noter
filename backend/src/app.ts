@@ -29,8 +29,14 @@ export async function createApp(): Promise<FastifyInstance> {
   app.decorate('registry', registry);
 
   // CORS
+  const corsOrigin = process.env.CORS_ORIGIN;
+
+  if (!corsOrigin && process.env.NODE_ENV === 'production') {
+    throw new Error('CORS_ORIGIN must be set in production environment');
+  }
+
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOrigin || 'http://localhost:5173', // Development fallback
     credentials: true,
   });
 
@@ -85,6 +91,7 @@ export async function createApp(): Promise<FastifyInstance> {
   const { attachmentRoutes } = await import('./routes/attachments');
   const importRoutes = await import('./routes/import');
   const adminRoutes = await import('./routes/admin');
+  const { backupRoutes } = await import('./routes/backup');
 
   await app.register(setupRoutes, { prefix: '/api/setup' });
   await app.register(authRoutes, { prefix: '/api/auth' });
@@ -95,10 +102,21 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(attachmentRoutes, { prefix: '/api' });
   await app.register(importRoutes.default, { prefix: '/api/import' });
   await app.register(adminRoutes.default, { prefix: '/api/admin' });
+  await app.register(backupRoutes, { prefix: '/api/backups' });
 
-  // TODO: Weitere Routes registrieren
-  // await app.register(backupRoutes, { prefix: '/api/backups' });
-  // await app.register(importExportRoutes, { prefix: '/api' });
+  // Backup Scheduler starten
+  const { BackupService } = await import('./services/backup.service');
+  const { SchedulerService } = await import('./services/scheduler.service');
+  const backupService = new BackupService(prisma);
+  const schedulerService = new SchedulerService(prisma, backupService);
+
+  // Scheduler beim App-Start initialisieren
+  await schedulerService.start();
+
+  // Graceful Shutdown: Scheduler stoppen
+  app.addHook('onClose', async () => {
+    schedulerService.stop();
+  });
 
   return app;
 }

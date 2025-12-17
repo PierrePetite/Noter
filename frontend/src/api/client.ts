@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// API URL MUSS via VITE_API_URL gesetzt werden
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  throw new Error(
+    'VITE_API_URL environment variable is required. Please create a .env file with VITE_API_URL=http://localhost:3000/api'
+  );
+}
 
 export const apiClient = axios.create({
   baseURL: API_URL,

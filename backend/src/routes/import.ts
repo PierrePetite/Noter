@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { pipeline } from 'stream/promises';
 import { createWriteStream } from 'fs';
 import { SynologyImportProvider, type SynologyImportResult } from '../providers/import-export/SynologyImportProvider';
@@ -37,7 +38,7 @@ const importRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Speichere temporär die hochgeladene Datei
-      const tempDir = path.join('/tmp', 'noter_uploads');
+      const tempDir = path.join(os.tmpdir(), 'noter_uploads');
       await fs.mkdir(tempDir, { recursive: true });
 
       const tempFilePath = path.join(tempDir, `${Date.now()}_${data.filename}`);

@@ -139,22 +139,45 @@ model Tag {
 
 // Backup-Metadaten (für Tracking von Backups)
 model Backup {
-  id        String   @id @default(uuid())
-  provider  String   // Name des Backup-Providers
-  size      Int      // Größe in Bytes
-  path      String?  // Pfad/ID im Provider-System
-  metadata  Json?    // Zusätzliche Metadaten (noteCount, userCount, etc.)
-  status    BackupStatus @default(COMPLETED)
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String       @id @default(uuid())
+  type      BackupType   @default(MANUAL) // manual oder scheduled
+  provider  String       @default("local") // Name des Backup-Providers (local, gdrive)
+  size      Int          // Größe in Bytes
+  path      String?      // Pfad/ID im Provider-System
+  metadata  Json?        // Zusätzliche Metadaten (noteCount, userCount, etc.)
+  status    BackupStatus @default(IN_PROGRESS)
+  error     String?      // Fehlermeldung bei FAILED
+  createdAt DateTime     @default(now()) @map("created_at")
 
   @@index([createdAt])
+  @@index([status])
   @@map("backups")
+}
+
+// Backup Scheduler Konfiguration
+model BackupSchedule {
+  id           String    @id @default(uuid())
+  enabled      Boolean   @default(false)
+  cronSchedule String    @map("cron_schedule") // Cron Expression (z.B. "0 2 * * *")
+  provider     String    @default("local") // local, gdrive, s3, etc.
+  retention    Int       @default(30) // Tage bis Auto-Löschung (0 = keine Auto-Löschung)
+  lastRun      DateTime? @map("last_run")
+  nextRun      DateTime? @map("next_run")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("backup_schedules")
 }
 
 // Enums
 enum Permission {
   READ
   WRITE
+}
+
+enum BackupType {
+  MANUAL
+  SCHEDULED
 }
 
 enum BackupStatus {

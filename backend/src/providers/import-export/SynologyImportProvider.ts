@@ -1,6 +1,7 @@
 import AdmZip from 'adm-zip';
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
+import os from 'os';
 import fs from 'fs/promises';
 import { htmlToTiptap, cleanHtml } from '../../utils/htmlToTiptap';
 import { PluginRegistry } from '../../plugins/PluginRegistry';
@@ -135,7 +136,7 @@ export class SynologyImportProvider {
    */
   private async extractNsxFile(nsxFilePath: string): Promise<string> {
     const zip = new AdmZip(nsxFilePath);
-    const extractDir = path.join('/tmp', `synology_import_${Date.now()}`);
+    const extractDir = path.join(os.tmpdir(), `synology_import_${Date.now()}`);
 
     await fs.mkdir(extractDir, { recursive: true });
     zip.extractAllTo(extractDir, true);

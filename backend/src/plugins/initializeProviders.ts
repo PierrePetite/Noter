@@ -14,13 +14,22 @@ export function initializeProviders(prisma: PrismaClient): PluginRegistry {
   // Storage Provider
   const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 
-  // Konstruiere Base URL für Uploads (muss absolut sein für Frontend)
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = process.env.HOST || '0.0.0.0';
-  const port = process.env.PORT || '3000';
-  // Verwende localhost für 0.0.0.0 (sonst funktioniert es nicht im Browser)
-  const hostname = host === '0.0.0.0' ? 'localhost' : host;
-  const baseUrl = `${protocol}://${hostname}:${port}/uploads`;
+  // Base-URL für Upload-Dateien
+  // In Production MUSS UPLOAD_BASE_URL gesetzt sein (z.B. https://noter.local/uploads)
+  let baseUrl: string;
+
+  if (process.env.UPLOAD_BASE_URL) {
+    baseUrl = process.env.UPLOAD_BASE_URL;
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error('UPLOAD_BASE_URL must be set in production environment');
+  } else {
+    // Development fallback
+    const protocol = 'http';
+    const host = process.env.HOST || 'localhost';
+    const port = process.env.PORT || '3000';
+    const hostname = host === '0.0.0.0' ? 'localhost' : host;
+    baseUrl = `${protocol}://${hostname}:${port}/uploads`;
+  }
 
   const localStorage = new LocalStorageProvider(uploadDir, baseUrl);
   registry.registerStorageProvider(localStorage);

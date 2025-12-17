@@ -33,6 +33,17 @@
             >
               Benutzer-Verwaltung
             </button>
+            <button
+              @click="activeTab = 'backups'"
+              class="px-3 py-3 text-sm font-medium border-b-2 transition-colors"
+              :class="
+                activeTab === 'backups'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              "
+            >
+              Backups
+            </button>
           </div>
         </div>
 
@@ -47,6 +58,11 @@
           <div v-if="activeTab === 'users'">
             <UserManagementView />
           </div>
+
+          <!-- Backups Tab -->
+          <div v-if="activeTab === 'backups'">
+            <BackupsView />
+          </div>
         </main>
       </div>
     </template>
@@ -58,6 +74,7 @@ import { ref } from 'vue';
 import MainLayout from '../layouts/MainLayout.vue';
 import StatsView from '../components/admin/StatsView.vue';
 import UserManagementView from '../components/admin/UserManagementView.vue';
+import BackupsView from '../components/admin/BackupsView.vue';
 
-const activeTab = ref<'stats' | 'users'>('stats');
+const activeTab = ref<'stats' | 'users' | 'backups'>('stats');
 </script>
