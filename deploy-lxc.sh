@@ -249,6 +249,12 @@ EOF
 
     print_success "Backend .env created"
 
+    # Update Prisma schema for PostgreSQL if needed
+    if [ "$USE_POSTGRES" = true ]; then
+        print_info "Configuring Prisma for PostgreSQL..."
+        sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
+    fi
+
     # Run Prisma migrations
     print_info "Running database migrations..."
     npx prisma generate
