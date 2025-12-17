@@ -72,10 +72,37 @@ generate_random_string() {
 configure_deployment() {
     print_header "Noter Deployment Configuration"
 
-    # Domain
-    read -p "Enter your domain (e.g., noter.yourdomain.com): " DOMAIN
-    if [ -z "$DOMAIN" ]; then
-        print_error "Domain is required"
+    # Ask for Domain or IP
+    print_info ""
+    print_info "Access Method:"
+    print_info "  1) Domain name (e.g., noter.yourdomain.com) - Requires DNS setup"
+    print_info "  2) IP address (e.g., 192.168.1.100) - Works immediately"
+    echo ""
+    read -p "Choose [1 for domain, 2 for IP]: " ACCESS_CHOICE
+
+    if [ "$ACCESS_CHOICE" = "1" ]; then
+        read -p "Enter your domain (e.g., noter.yourdomain.com): " DOMAIN
+        if [ -z "$DOMAIN" ]; then
+            print_error "Domain is required"
+            exit 1
+        fi
+        USE_DOMAIN=true
+        BASE_URL="https://$DOMAIN"
+        print_info "Using domain: $DOMAIN"
+    elif [ "$ACCESS_CHOICE" = "2" ]; then
+        # Auto-detect IP address
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+        print_info "Detected IP address: $SERVER_IP"
+        read -p "Use this IP? [Y/n]: " USE_IP_CONFIRM
+        if [[ "$USE_IP_CONFIRM" =~ ^[Nn]$ ]]; then
+            read -p "Enter IP address: " SERVER_IP
+        fi
+        DOMAIN="$SERVER_IP"
+        USE_DOMAIN=false
+        BASE_URL="http://$SERVER_IP"
+        print_info "Using IP address: $SERVER_IP"
+    else
+        print_error "Invalid choice"
         exit 1
     fi
 
@@ -120,7 +147,7 @@ configure_deployment() {
     # Confirmation
     echo ""
     print_header "Configuration Summary"
-    echo "Domain: $DOMAIN"
+    echo "Access URL: $BASE_URL"
     echo "Database: PostgreSQL"
     echo "Admin Email: $ADMIN_EMAIL"
     echo "Admin Username: $ADMIN_USERNAME"
@@ -248,8 +275,8 @@ NODE_ENV=production
 PORT=3000
 HOST=0.0.0.0
 
-CORS_ORIGIN=https://$DOMAIN
-UPLOAD_BASE_URL=https://$DOMAIN/uploads
+CORS_ORIGIN=$BASE_URL
+UPLOAD_BASE_URL=$BASE_URL/uploads
 
 DATABASE_URL="$DATABASE_URL"
 
@@ -305,7 +332,7 @@ EOF
 
     # Create .env file
     cat > .env <<EOF
-VITE_API_URL=https://$DOMAIN/api
+VITE_API_URL=$BASE_URL/api
 EOF
 
     print_success "Frontend .env created"
@@ -433,6 +460,13 @@ EOF
 setup_ssl() {
     print_header "Setting up SSL/TLS"
 
+    # Skip SSL setup if using IP address
+    if [ "$USE_DOMAIN" = false ]; then
+        print_info "Skipping SSL setup (using IP address)"
+        print_info "Access Noter at: http://$DOMAIN"
+        return 0
+    fi
+
     print_info "Obtaining SSL certificate from Let's Encrypt..."
     print_warning "Make sure DNS is properly configured for $DOMAIN"
 
@@ -480,7 +514,7 @@ post_installation() {
     print_success "Noter has been successfully installed!"
     echo ""
     echo "Access your Noter instance at:"
-    echo "  http://$DOMAIN (or https:// if SSL was configured)"
+    echo "  $BASE_URL"
     echo ""
     echo "Important Information:"
     echo "  - Application directory: $APP_DIR"
@@ -495,7 +529,7 @@ post_installation() {
     echo "  - Password: [as entered]"
     echo ""
     echo "Next Steps:"
-    echo "  1. Visit https://$DOMAIN (or http:// if SSL failed)"
+    echo "  1. Visit $BASE_URL"
     echo "  2. Login with your admin credentials"
     echo "  3. Configure automatic backups in the admin panel"
     echo ""
@@ -507,7 +541,7 @@ Noter Installation Credentials
 ==============================
 Generated: $(date)
 
-Domain: $DOMAIN
+Access URL: $BASE_URL
 
 Database: PostgreSQL
 Database Password: $DB_PASSWORD
