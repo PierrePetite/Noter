@@ -151,7 +151,11 @@ function convertNode(node: Node, options: ConversionOptions): TipTapNode | TipTa
         return convertSpan(element, options);
 
       case 'table':
-        // TODO: Table-Support später hinzufügen
+        return convertTable(element, options);
+
+      case 'tbody':
+      case 'thead':
+        // tbody und thead: Inhalt extrahieren (tr Elemente)
         return convertNodeList(element.childNodes, options);
 
       case 'hr':
@@ -415,6 +419,93 @@ function convertInlineNodes(nodes: NodeListOf<ChildNode>, options: ConversionOpt
   }
 
   return result;
+}
+
+/**
+ * Konvertiert Table
+ */
+function convertTable(element: Element, options: ConversionOptions): TipTapNode {
+  const rows: TipTapNode[] = [];
+
+  // Verarbeite thead und tbody
+  for (const child of Array.from(element.children)) {
+    const tagName = child.tagName.toLowerCase();
+
+    if (tagName === 'thead' || tagName === 'tbody') {
+      // Verarbeite alle tr Elemente in thead/tbody
+      for (const tr of Array.from(child.children)) {
+        if (tr.tagName.toLowerCase() === 'tr') {
+          const row = convertTableRow(tr, tagName === 'thead', options);
+          if (row) rows.push(row);
+        }
+      }
+    } else if (tagName === 'tr') {
+      // Direkte tr Elemente (ohne thead/tbody)
+      const row = convertTableRow(child, false, options);
+      if (row) rows.push(row);
+    }
+  }
+
+  return {
+    type: 'table',
+    content: rows.length > 0 ? rows : [
+      {
+        type: 'tableRow',
+        content: [
+          {
+            type: 'tableCell',
+            content: [{ type: 'paragraph' }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * Konvertiert Table Row
+ */
+function convertTableRow(element: Element, isHeader: boolean, options: ConversionOptions): TipTapNode | null {
+  const cells: TipTapNode[] = [];
+
+  for (const child of Array.from(element.children)) {
+    const tagName = child.tagName.toLowerCase();
+
+    if (tagName === 'td' || tagName === 'th') {
+      const cell = convertTableCell(child, tagName === 'th' || isHeader, options);
+      if (cell) cells.push(cell);
+    }
+  }
+
+  if (cells.length === 0) return null;
+
+  return {
+    type: 'tableRow',
+    content: cells,
+  };
+}
+
+/**
+ * Konvertiert Table Cell (td oder th)
+ */
+function convertTableCell(element: Element, isHeader: boolean, options: ConversionOptions): TipTapNode | null {
+  const content = convertNodeList(element.childNodes, options);
+
+  // Wenn keine Content-Nodes vorhanden sind, füge einen leeren Paragraph hinzu
+  const cellContent = content.length > 0
+    ? content.map(node => {
+        // Wenn der Node kein Block-Element ist, wrappen wir ihn in einen Paragraph
+        if (node.type === 'text') {
+          return { type: 'paragraph', content: [node] };
+        }
+        return node;
+      })
+    : [{ type: 'paragraph' }];
+
+  return {
+    type: isHeader ? 'tableHeader' : 'tableCell',
+    content: cellContent,
+  };
 }
 
 /**

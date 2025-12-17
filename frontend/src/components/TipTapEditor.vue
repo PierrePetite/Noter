@@ -173,6 +173,83 @@
 
       <div class="toolbar-divider"></div>
 
+      <!-- Table Controls -->
+      <div class="toolbar-group">
+        <button
+          @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
+          class="toolbar-button"
+          type="button"
+          title="Tabelle einfügen (3x3)"
+        >
+          ⊞
+        </button>
+        <button
+          @click="editor.chain().focus().addColumnBefore().run()"
+          :disabled="!editor.can().addColumnBefore()"
+          class="toolbar-button"
+          type="button"
+          title="Spalte links einfügen"
+        >
+          ⊳
+        </button>
+        <button
+          @click="editor.chain().focus().addColumnAfter().run()"
+          :disabled="!editor.can().addColumnAfter()"
+          class="toolbar-button"
+          type="button"
+          title="Spalte rechts einfügen"
+        >
+          ⊲
+        </button>
+        <button
+          @click="editor.chain().focus().addRowBefore().run()"
+          :disabled="!editor.can().addRowBefore()"
+          class="toolbar-button"
+          type="button"
+          title="Zeile oben einfügen"
+        >
+          ⊤
+        </button>
+        <button
+          @click="editor.chain().focus().addRowAfter().run()"
+          :disabled="!editor.can().addRowAfter()"
+          class="toolbar-button"
+          type="button"
+          title="Zeile unten einfügen"
+        >
+          ⊥
+        </button>
+        <button
+          @click="editor.chain().focus().deleteColumn().run()"
+          :disabled="!editor.can().deleteColumn()"
+          class="toolbar-button"
+          type="button"
+          title="Spalte löschen"
+        >
+          ⊟
+        </button>
+        <button
+          @click="editor.chain().focus().deleteRow().run()"
+          :disabled="!editor.can().deleteRow()"
+          class="toolbar-button"
+          type="button"
+          title="Zeile löschen"
+        >
+          ━
+        </button>
+        <button
+          @click="editor.chain().focus().deleteTable().run()"
+          :disabled="!editor.can().deleteTable()"
+          class="toolbar-button"
+          type="button"
+          title="Tabelle löschen"
+        >
+          ⊠
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
       <div class="toolbar-group">
         <button
           @click="editor.chain().focus().undo().run()"
@@ -226,6 +303,10 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Highlight from '@tiptap/extension-highlight';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 import { common, createLowlight } from 'lowlight';
 import { imagesApi } from '../api/images';
 
@@ -274,6 +355,15 @@ const editor = useEditor({
     CodeBlockLowlight.configure({
       lowlight,
     }),
+    Table.configure({
+      resizable: true,
+      HTMLAttributes: {
+        class: 'table-auto border-collapse',
+      },
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
   ],
   editorProps: {
     attributes: {
@@ -497,6 +587,29 @@ onBeforeUnmount(() => {
 
 :deep(.ProseMirror img:hover) {
   @apply ring-2 ring-blue-500;
+}
+
+/* Tables */
+:deep(.ProseMirror table) {
+  @apply border-collapse w-full my-4;
+}
+
+:deep(.ProseMirror table td),
+:deep(.ProseMirror table th) {
+  @apply border border-gray-300 px-3 py-2 text-left;
+  min-width: 100px;
+}
+
+:deep(.ProseMirror table th) {
+  @apply bg-gray-100 font-semibold;
+}
+
+:deep(.ProseMirror table .selectedCell) {
+  @apply bg-blue-50;
+}
+
+:deep(.ProseMirror table .column-resize-handle) {
+  @apply absolute top-0 right-0 w-1 h-full bg-blue-500 pointer-events-none;
 }
 
 /* Upload Overlay */
